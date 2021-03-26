@@ -102,13 +102,13 @@ void loop(){
 }
 */
 
-static const char *ssid     = "your-ssid";  // your network SSID (name of wifi network)
-static const char *password = "your-password"; // your network password
+static const char *ssid     = "Elvis12345";  // your network SSID (name of wifi network)
+static const char *password = "310710122812"; // your network password
 
-#define GHOTA_USER "username"
-#define GHOTA_REPO "repository"
+#define GHOTA_USER "MenitoX"
+#define GHOTA_REPO "OTA-testing"
 #define GHOTA_CURRENT_TAG "0.0.0"
-#define GHOTA_BIN_FILE "sketchname.ino.d1_mini.bin"
+#define GHOTA_BIN_FILE "firmware.bin"
 #define GHOTA_ACCEPT_PRERELEASE 0
 
 #include <ESP_OTA_GitHub.h>
@@ -152,5 +152,5 @@ void setup(){
 }
 
 void loop(){
-
+    delay(5000);
 }
