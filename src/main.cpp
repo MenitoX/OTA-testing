@@ -152,5 +152,6 @@ void setup(){
 }
 
 void loop(){
+    Serial.println("PiC0");
     delay(5000);
 }
