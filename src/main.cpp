@@ -4,6 +4,7 @@
 //#include <ESPmDNS.h>
 //#include <Update.h>
 //#include "esp_wps.h"
+/*
 #include <Arduino.h>
 #include "./HttpsOTAUpdate.h"
 
@@ -98,4 +99,58 @@ void loop(){
         Serial.println("Firmware Upgrade Fail");
     }
     delay(1000);
+}
+*/
+
+static const char *ssid     = "your-ssid";  // your network SSID (name of wifi network)
+static const char *password = "your-password"; // your network password
+
+#define GHOTA_USER "username"
+#define GHOTA_REPO "repository"
+#define GHOTA_CURRENT_TAG "0.0.0"
+#define GHOTA_BIN_FILE "sketchname.ino.d1_mini.bin"
+#define GHOTA_ACCEPT_PRERELEASE 0
+
+#include <ESP_OTA_GitHub.h>
+
+void handle_upgade() {
+	// Initialise Update Code
+	//We do this locally so that the memory used is freed when the function exists.
+	ESPOTAGitHub ESPOTAGitHub(GHOTA_USER, GHOTA_REPO, GHOTA_CURRENT_TAG, GHOTA_BIN_FILE, GHOTA_ACCEPT_PRERELEASE);
+	
+	Serial.println("Checking for update...");
+    if (ESPOTAGitHub.checkUpgrade()) {
+		Serial.print("Upgrade found at: ");
+		Serial.println(ESPOTAGitHub.getUpgradeURL());
+		if (ESPOTAGitHub.doUpgrade()) {
+			Serial.println("Upgrade complete."); //This should never be seen as the device should restart on successful upgrade.
+		} else {
+			Serial.print("Unable to upgrade: ");
+			Serial.println(ESPOTAGitHub.getLastError());
+		}
+    } else {
+		Serial.print("Not proceeding to upgrade: ");
+		Serial.println(ESPOTAGitHub.getLastError());
+    }
+}
+
+
+
+void setup(){
+    Serial.begin(115200);
+    Serial.print("Connecting to WiFi... ");
+	WiFi.mode(WIFI_STA);
+	WiFi.begin(ssid, password);
+	if ((WiFi.status() != WL_CONNECTED)) {
+		Serial.print("... ");
+	}
+	Serial.println();
+  
+    /* This is the actual code to check and upgrade */
+    handle_upgade();
+    /* End of check and upgrade code */
+}
+
+void loop(){
+
 }
