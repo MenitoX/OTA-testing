@@ -107,7 +107,7 @@ static const char *password = "310710122812"; // your network password
 
 #define GHOTA_USER "MenitoX"
 #define GHOTA_REPO "OTA-testing"
-#define GHOTA_CURRENT_TAG "0.0.0"
+#define GHOTA_CURRENT_TAG "1.0.0"
 #define GHOTA_BIN_FILE "firmware.bin"
 #define GHOTA_ACCEPT_PRERELEASE 0
 
@@ -144,5 +144,6 @@ void setup(){
 }
 
 void loop(){
+    Serial.println("PiC0");
     delay(5000);
 }
