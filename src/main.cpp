@@ -119,19 +119,11 @@ void handle_upgade() {
 	ESPOTAGitHub ESPOTAGitHub(GHOTA_USER, GHOTA_REPO, GHOTA_CURRENT_TAG, GHOTA_BIN_FILE, GHOTA_ACCEPT_PRERELEASE);
 	
 	Serial.println("Checking for update...");
-    if (ESPOTAGitHub.checkUpgrade()) {
-		Serial.print("Upgrade found at: ");
-		Serial.println(ESPOTAGitHub.getUpgradeURL());
-		if (ESPOTAGitHub.doUpgrade()) {
+    if (ESPOTAGitHub.doUpgrade()) {
 			Serial.println("Upgrade complete."); //This should never be seen as the device should restart on successful upgrade.
 		} else {
 			Serial.print("Unable to upgrade: ");
-			Serial.println(ESPOTAGitHub.getLastError());
-		}
-    } else {
-		Serial.print("Not proceeding to upgrade: ");
-		Serial.println(ESPOTAGitHub.getLastError());
-    }
+        }
 }
 
 
@@ -145,9 +137,9 @@ void setup(){
 		Serial.print("... ");
 	}
 	Serial.println();
-  
-    /* This is the actual code to check and upgrade */
+    
     handle_upgade();
+    /* This is the actual code to check and upgrade */
     /* End of check and upgrade code */
 }
 
