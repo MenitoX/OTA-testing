@@ -15,26 +15,31 @@ static const char *password = "310710122812"; // your network password
 WiFiClientSecure client;
 const char* rootCACertificate = \
 "-----BEGIN CERTIFICATE-----\n" \
-"MIIDUzCCAjsCFBUBQ2i5/5dTJOq69HXKI1cFtTDqMA0GCSqGSIb3DQEBCwUAMGYx\n" \
-"CzAJBgNVBAYTAlVTMRMwEQYDVQQIDApGYWtlIFN0YXRlMRYwFAYDVQQHDA1GYWtl\n" \
-"IExvY2FsaXR5MRUwEwYDVQQKDAxGYWtlIENvbXBhbnkxEzARBgNVBAMMCmdpdGh1\n" \
-"Yi5jb20wHhcNMjEwMzI5MjExNjIzWhcNMjYwMzI4MjExNjIzWjBmMQswCQYDVQQG\n" \
-"EwJVUzETMBEGA1UECAwKRmFrZSBTdGF0ZTEWMBQGA1UEBwwNRmFrZSBMb2NhbGl0\n" \
-"eTEVMBMGA1UECgwMRmFrZSBDb21wYW55MRMwEQYDVQQDDApnaXRodWIuY29tMIIB\n" \
-"IjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1/2bSF2SPBvRldiZSX8w5qXk\n" \
-"hDLdMFS5XKipP+LcSsYlAxDYG89xnQGo0Y1DnNujgJKyjghgkk8NeBxKYjc40Opt\n" \
-"dtId0284svEEDgTcOWEDgW8PcdH3xDzuHe4AG5uuXMZ6AbSsYK8Nodo7ZDKeVAqN\n" \
-"jJU648hQ8Wx8SYPQKaZJSIpNBjXd2nKJPrSBWFGChMYuz2SVugIApqFs9VPNUiOo\n" \
-"Hpf6pz3IIMHLr0LCGLdDtvMYsdyncxaZnbJHkWE6VnEC87zWB64yMZl3IPJeD1g0\n" \
-"QbrR3WrOu1qGXre5C5QYt9KKUYg2ird+VvfK5kTVGyIo9pyqI9QHRwbu8C6rYwID\n" \
-"AQABMA0GCSqGSIb3DQEBCwUAA4IBAQAXQ76+dWLupd/xpJkVe1ibFSd7oK/ITlkB\n" \
-"IOcO1YbOdr8QL/EUSLhL8dXZ4GkgTOHbKxrl/iHfEkAe1QAwsqDpsNnq5DNQewFM\n" \
-"nn9TpnqexkdXwFKO/Xr2mqmGO7Xe2BcSYSRYGrcVNoILhnHdGQDFl+Us8riSP0qE\n" \
-"pjpWVTSINN9mFupHZEvFotwdO9+TvQf583ljPG6a5wQOqUnt5N+SxNbxlCxA4RDK\n" \
-"nqa+s5XF+pVb+xzEiHW2DAqrgOPuljx1OnHXw+aUy4JX7B4kpwpAviEyUwn4J0a2\n" \
-"JC/rWonF4oSWGKzIR0snDanHYgRrP+8LmqIUTmhHiyzkZRnVt/t6\n" \
+"MIIEGzCCAwOgAwIBAgIQBmcDW7sU/WOvwNaoU07+FjANBgkqhkiG9w0BAQsFADBs\n" \
+"MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\n" \
+"d3cuZGlnaWNlcnQuY29tMSswKQYDVQQDEyJEaWdpQ2VydCBIaWdoIEFzc3VyYW5j\n" \
+"ZSBFViBSb290IENBMB4XDTIwMTIxNzAwMDAwMFoXDTMwMTIxNjIzNTk1OVowZzEL\n" \
+"MAkGA1UEBhMCVVMxFzAVBgNVBAoTDkRpZ2lDZXJ0LCBJbmMuMT8wPQYDVQQDEzZE\n" \
+"aWdpQ2VydCBIaWdoIEFzc3VyYW5jZSBUTFMgSHlicmlkIEVDQyBTSEEyNTYgMjAy\n" \
+"MCBDQTEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARnvW/xPOudvtC252wTq9ef\n" \
+"6fbdFeWPkOscfpRTkciuHj7UcumQSH3lzkPEIx0KpesWa8epsks7QwkZ4fU/Tkf9\n" \
+"o4IBhzCCAYMwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQUUGGmoNI1xBEq\n" \
+"II0fD6xC8M0pz0swHwYDVR0jBBgwFoAUsT7DaQP4v0cB1JgmGggC72NkK8MwDgYD\n" \
+"VR0PAQH/BAQDAgGGMB0GA1UdJQQWMBQGCCsGAQUFBwMBBggrBgEFBQcDAjB/Bggr\n" \
+"BgEFBQcBAQRzMHEwJAYIKwYBBQUHMAGGGGh0dHA6Ly9vY3NwLmRpZ2ljZXJ0LmNv\n" \
+"bTBJBggrBgEFBQcwAoY9aHR0cDovL2NhY2VydHMuZGlnaWNlcnQuY29tL0RpZ2lD\n" \
+"ZXJ0SGlnaEFzc3VyYW5jZUVWUm9vdENBLmNydDBLBgNVHR8ERDBCMECgPqA8hjpo\n" \
+"dHRwOi8vY3JsMy5kaWdpY2VydC5jb20vRGlnaUNlcnRIaWdoQXNzdXJhbmNlRVZS\n" \
+"b290Q0EuY3JsMDAGA1UdIAQpMCcwCAYGZ4EMAQICMAgGBmeBDAECAzAHBgVngQwB\n" \
+"ATAIBgZngQwBAgEwDQYJKoZIhvcNAQELBQADggEBAHMQH8hhiBfNbxwEwxbbTAnu\n" \
+"jPyUh/oi0JrfZI3u9JuiLqca720D6foS/AB5+4EIxpm7CMG4MdN/l7oAiDipaCPv\n" \
+"mOmpYUpnT7A63Cr0q4g84rI1ZmdqA40lVUUf6qC6E34tC73qDQF8TJSrfscWFdCl\n" \
+"RXR9J4QGrkZ2VNMSDzlDRzWCaA95MfO8x01l+ZdopdE8FvM78gGd4zxeWb8v991+\n" \
+"mBxTDepqKuy/jF5Rm6Bhfxr33ADRs60s1t16dtZ3pOYLALBTPD5KhZ6a+/dk5dnh\n" \
+"6c4PaeZQYBUAh+GuxfaBlU4qQ8EtjBMCQHreMIwXHYHW5FRYGjgR4NMuaIw2jD0=\n" \
 "-----END CERTIFICATE-----\n" \
 "";
+
 
 const char* test_client_key = \
 "-----BEGIN RSA PRIVATE KEY-----\n" \
@@ -103,8 +108,8 @@ void setup(){
 	Serial.println();
     const char*upgradeURL = "https://github.com/MenitoX/OTA-testing/releases/download/1.0.0/firmware.bin";
     client.setCACert(rootCACertificate);
-    client.setCertificate(test_client_cert);
-    client.setPrivateKey(test_client_key);
+    //client.setCertificate(test_client_cert);
+    //client.setPrivateKey(test_client_key);
     httpUpdate.setLedPin(LED_BUILTIN, LOW);
     httpUpdate.update(client, upgradeURL);
     /* This is the actual code to check and upgrade */
