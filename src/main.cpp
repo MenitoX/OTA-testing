@@ -111,7 +111,9 @@ void setup(){
     //client.setCertificate(test_client_cert);
     //client.setPrivateKey(test_client_key);
     httpUpdate.setLedPin(LED_BUILTIN, LOW);
-    httpUpdate.update(client, upgradeURL);
+    //httpUpdate.update(client, upgradeURL);
+    httpUpdate.update(client,"https://github.com", 443, upgradeURL);
+    
     /* This is the actual code to check and upgrade */
     /* End of check and upgrade code */
 }
