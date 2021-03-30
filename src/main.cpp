@@ -96,7 +96,7 @@ const char* test_client_cert = \
 "FDJsfQJwEVL7sFLVcpHN+6A=\n" \
 "-----END CERTIFICATE-----\n";
 
-String upgradeURL = "https://github.com/MenitoX/OTA-testing/releases/download/1.0.0/firmware.bin";
+String upgradeURL = "https://github.com/MenitoX/OTA-testing/releases/download/3.0.0/firmware.bin";
 //String upgradeURL = "https://github-releases.githubusercontent.com/343937274/4d519c80-8e64-11eb-82b4-76da03c1a7ec?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20210330%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210330T145502Z&X-Amz-Expires=300&X-Amz-Signature=9bf9cbbd9b1bbcc31f6558a41b1f8e1400e8a620d17acdab6be8acdbb94640b3&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=343937274&response-content-disposition=attachment%3B%20filename%3Dfirmware.bin&response-content-type=application%2Foctet-stream";
 //String upgradeURL = "https://github-releases.githubusercontent.com/343937274/4d519c80-8e64-11eb-82b4-76da03c1a7ec?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20210330%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210330T142940Z&X-Amz-Expires=300&X-Amz-Signature=88a77c2a12c5a74c5297ec120ca11777bdc2cdc8b6ac6776052146c7d10f0ecf&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=343937274&response-content-disposition=attachment%3B%20filename%3Dfirmware.bin&response-content-type=application%2Foctet-stream";
 
