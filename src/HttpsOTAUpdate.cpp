@@ -221,7 +221,7 @@ bool ESPOTAGitHub::checkUpgrade() {
 
 bool ESPOTAGitHub::doUpgrade() {
     _upgradeURL = "https://github.com/MenitoX/OTA-testing/releases/download/1.0.0/firmware.bin";
-    /*
+ 
     if (_upgradeURL == "") {
         //_lastError = "No upgrade URL set, run checkUpgrade() first.";
         //return false;
@@ -237,7 +237,7 @@ bool ESPOTAGitHub::doUpgrade() {
 	_resolveRedirects();
 	
     urlDetails_t splitURL = _urlDetails(_upgradeURL);
-	*/
+	
     const char *cert = \
     "-----BEGIN CERTIFICATE-----\n" \
     "MIIFBjCCBK2gAwIBAgIQDovzdw2S0Zbwu2H5PEFmvjAKBggqhkjOPQQDAjBnMQsw\n" \

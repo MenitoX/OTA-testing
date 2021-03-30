@@ -137,8 +137,9 @@ bool _resolveRedirects() {
     String path = splitURL.path;
     bool isFinalURL = false;
 
-    WiFiClient client;
-
+    WiFiClientSecure client;
+    client.setCACert(rootCACertificate);
+    
     while (!isFinalURL) {
         if (!client.connect(host, port)) {
             Serial.println("Connection failed (142)");
