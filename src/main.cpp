@@ -3,14 +3,15 @@
 #include "HTTPClient.h"
 #include "HTTPUpdate.h"
 
-static const char *ssid     = "Elvis12345";  // your network SSID (name of wifi network)
-static const char *password = "310710122812"; // your network password
+static const char *ssid     = "Casa 123";  // your network SSID (name of wifi network)
+static const char *password = "11248325"; // your network password
 
 #define GHOTA_USER "MenitoX"
 #define GHOTA_REPO "OTA-testing"
 #define GHOTA_CURRENT_TAG "1.0.0"
 #define GHOTA_BIN_FILE "firmware.bin"
 #define GHOTA_ACCEPT_PRERELEASE 0
+#define WIFI_TIMEOUT 10000
 
 WiFiClientSecure client;
 const char* rootCACertificate = \
@@ -96,6 +97,8 @@ const char* test_client_cert = \
 "-----END CERTIFICATE-----\n";
 
 String upgradeURL = "https://github.com/MenitoX/OTA-testing/releases/download/1.0.0/firmware.bin";
+//String upgradeURL = "https://github-releases.githubusercontent.com/343937274/4d519c80-8e64-11eb-82b4-76da03c1a7ec?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20210330%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210330T145502Z&X-Amz-Expires=300&X-Amz-Signature=9bf9cbbd9b1bbcc31f6558a41b1f8e1400e8a620d17acdab6be8acdbb94640b3&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=343937274&response-content-disposition=attachment%3B%20filename%3Dfirmware.bin&response-content-type=application%2Foctet-stream";
+//String upgradeURL = "https://github-releases.githubusercontent.com/343937274/4d519c80-8e64-11eb-82b4-76da03c1a7ec?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20210330%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210330T142940Z&X-Amz-Expires=300&X-Amz-Signature=88a77c2a12c5a74c5297ec120ca11777bdc2cdc8b6ac6776052146c7d10f0ecf&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=343937274&response-content-disposition=attachment%3B%20filename%3Dfirmware.bin&response-content-type=application%2Foctet-stream";
 
 typedef struct urlDetails_t {
     String proto;
@@ -103,6 +106,27 @@ typedef struct urlDetails_t {
 	int port;
     String path;
 };
+
+void wifiConnection(){
+    Serial.print("Connecting to wifi");
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+
+    unsigned long strartAttempTime = millis();
+
+    while (WiFi.status() != WL_CONNECTED && millis() - strartAttempTime < WIFI_TIMEOUT) {
+        Serial.print(".");
+        delay(100);
+    }
+  
+    if(WiFi.status() != WL_CONNECTED){
+        Serial.print("failed!\n");
+        WiFi.mode(WIFI_OFF);
+    }else{
+        Serial.print("connected!");
+        Serial.print(WiFi.localIP());
+    }
+}
 
 urlDetails_t _urlDetails(String url) {
     String proto = "";
@@ -137,10 +161,18 @@ bool _resolveRedirects() {
     String path = splitURL.path;
     bool isFinalURL = false;
 
+    Serial.println(proto);
+    Serial.println(host);
+    Serial.println(port);
+    Serial.println(path);
+    //wifiConnection();
+
     WiFiClientSecure client;
     client.setCACert(rootCACertificate);
-    
+    client.setInsecure();
     while (!isFinalURL) {
+        Serial.printf("Host1 is: %s\n", host);
+        
         if (!client.connect(host, port)) {
             Serial.println("Connection failed (142)");
             return false;
@@ -156,6 +188,7 @@ bool _resolveRedirects() {
             if (response.startsWith("location: ") || response.startsWith("Location: ")) {
                 isFinalURL = false;
                 String location = response;
+                Serial.printf("la response is: %s\n", response.c_str());
 				if (response.startsWith("location: ")) {
 					location.replace("location: ", "");
 				} else {
@@ -165,11 +198,17 @@ bool _resolveRedirects() {
 
                 if (location.startsWith("http://") || location.startsWith("https://")) {
                     //absolute URL - separate host from path
+                    Serial.println(location);
                     urlDetails_t url = _urlDetails(location);
                     proto = url.proto;
                     host = url.host.c_str();
+                    Serial.printf("Host is: %s\n", host);
                     port = url.port;
                     path = url.path;
+
+                    String finalURL = proto + host + path;
+                    upgradeURL = finalURL;
+                    return true;
                 } else {
 					//relative URL - host is the same as before, location represents the new path.
                     path = location;
@@ -198,18 +237,11 @@ bool _resolveRedirects() {
 
 void setup(){
     Serial.begin(115200);
-    Serial.print("Connecting to WiFi... ");
-	WiFi.mode(WIFI_STA);
-	WiFi.begin(ssid, password);
-	if ((WiFi.status() != WL_CONNECTED)) {
-		Serial.print("... ");
-	}
-	Serial.println();
+    wifiConnection();
     client.setCACert(rootCACertificate);
     //client.setCertificate(test_client_cert);
     //client.setPrivateKey(test_client_key);
     httpUpdate.setLedPin(LED_BUILTIN, LOW);
-    //httpUpdate.update(client, upgradeURL);
     _resolveRedirects();
     httpUpdate.update(client,upgradeURL);
     
