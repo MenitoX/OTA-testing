@@ -95,6 +95,106 @@ const char* test_client_cert = \
 "FDJsfQJwEVL7sFLVcpHN+6A=\n" \
 "-----END CERTIFICATE-----\n";
 
+String upgradeURL = "https://github.com/MenitoX/OTA-testing/releases/download/1.0.0/firmware.bin";
+
+typedef struct urlDetails_t {
+    String proto;
+    String host;
+	int port;
+    String path;
+};
+
+urlDetails_t _urlDetails(String url) {
+    String proto = "";
+    int port = 80;
+    if (url.startsWith("http://")) {
+        proto = "http://";
+        url.replace("http://", "");
+    } else {
+        proto = "https://";
+        port = 443;
+        url.replace("https://", "");
+    }
+    int firstSlash = url.indexOf('/');
+    String host = url.substring(0, firstSlash);
+    String path = url.substring(firstSlash);
+
+    urlDetails_t urlDetail;
+
+    urlDetail.proto = proto;
+    urlDetail.host = host;
+    urlDetail.port = port;
+    urlDetail.path = path;
+
+    return urlDetail;
+}
+
+bool _resolveRedirects() {
+    urlDetails_t splitURL = _urlDetails(upgradeURL);
+    String proto = splitURL.proto;
+    const char* host = splitURL.host.c_str();
+    uint16_t port = splitURL.port;
+    String path = splitURL.path;
+    bool isFinalURL = false;
+
+    WiFiClient client;
+
+    while (!isFinalURL) {
+        if (!client.connect(host, port)) {
+            Serial.println("Connection failed (142)");
+            return false;
+        }
+
+        client.print(String("GET ") + path + " HTTP/1.1\r\n" +
+            "Host: " + host + "\r\n" +
+            "User-Agent: ESP_OTA_GitHubArduinoLibrary\r\n" +
+            "Connection: close\r\n\r\n");
+
+        while (client.connected()) {
+            String response = client.readStringUntil('\n');
+            if (response.startsWith("location: ") || response.startsWith("Location: ")) {
+                isFinalURL = false;
+                String location = response;
+				if (response.startsWith("location: ")) {
+					location.replace("location: ", "");
+				} else {
+					location.replace("Location: ", "");
+				}
+                location.remove(location.length() - 1);
+
+                if (location.startsWith("http://") || location.startsWith("https://")) {
+                    //absolute URL - separate host from path
+                    urlDetails_t url = _urlDetails(location);
+                    proto = url.proto;
+                    host = url.host.c_str();
+                    port = url.port;
+                    path = url.path;
+                } else {
+					//relative URL - host is the same as before, location represents the new path.
+                    path = location;
+                }
+                //leave the while loop so we don't set isFinalURL on the next line of the header.
+                break;
+            } else {
+                //location header not present - this must not be a redirect. Treat this as the final address.
+                isFinalURL = true;
+            }
+            if (response == "\r") {
+                break;
+            }
+        }
+    }
+
+    if(isFinalURL) {
+        String finalURL = proto + host + path;
+        upgradeURL = finalURL;
+        return true;
+    } else {
+        Serial.println("CONNECTION FAILED (191)");
+        return false;
+    }
+}
+
 void setup(){
     Serial.begin(115200);
     Serial.print("Connecting to WiFi... ");
@@ -104,15 +204,12 @@ void setup(){
 		Serial.print("... ");
 	}
 	Serial.println();
-    const char*upgradeURL = "https://github.com/MenitoX/OTA-testing/releases/download/1.0.0/firmware.bin";
     client.setCACert(rootCACertificate);
     //client.setCertificate(test_client_cert);
     //client.setPrivateKey(test_client_key);
     httpUpdate.setLedPin(LED_BUILTIN, LOW);
     //httpUpdate.update(client, upgradeURL);
-    if(!client.connect("github.com", 443)){
-        Serial.println("No conection to host");
-    }
+    _resolveRedirects();
     httpUpdate.update(client,upgradeURL);
     
     /* This is the actual code to check and upgrade */
