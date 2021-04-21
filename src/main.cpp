@@ -2,9 +2,149 @@
 #include <WiFiClientSecure.h>
 #include "HTTPClient.h"
 #include "HTTPUpdate.h"
+#define TINY_GSM_MODEM_SIM800      // SIM Module model is set
+#define TINY_GSM_RX_BUFFER   1024  // RX Buffer memory is set to 1024 Bytes
+#define CERT_FILE "C:\\USER\\CERT.CRT"
+#include <TinyGsmClient.h>
+#include <Update.h>
+#include "SPIFFS.h"
+//#include "DSTRootCAX3.h"
+/*-------------------------------* Declarations *------------------------------------*/
 
-static const char *ssid     = "Casa 123";  // your network SSID (name of wifi network)
-static const char *password = "11248325"; // your network password
+TinyGsm modem(Serial1);
+TinyGsmClient client(modem);
+
+static const char *ssid     = "Elvis12345";  // your network SSID (name of wifi network)
+static const char *password = "310710122812"; // your network password
+
+struct MovilOperator 
+{
+  char *apn;
+  char *user;
+  char *pass;
+};
+//////////////////////
+bool initGprsModem();
+int waitSignal(int requiredCsq);
+String codeToSignal(int code);
+int signalStrength();
+void sleepModem();
+bool connectGprs(struct MovilOperator movilOperator);
+bool disconnectGprs();
+void createOperator(struct MovilOperator *movilOperator, String apn, String user, String pass);
+bool beginMemory();
+void performUpdate(Stream &updateSource, size_t updateSize);
+void updateFromFS();
+//////////////////////
+
+bool initGprsModem(){
+  modem.restart();
+  bool state;
+  int csq = 2;
+  int Signal = waitSignal(csq);
+
+  if(Signal >= csq){
+    Serial.printf("%s %s ","Signal strength:", codeToSignal(Signal).c_str());
+    state = modem.waitForNetwork();
+  }else{
+    state = false;
+    Serial.printf("%s ","Signal strength too low");
+  }
+  return state;
+}
+
+int waitSignal(int requiredCsq){
+  int csq = 0;
+  int max_wait = 100000;
+  long curMillis = 0;
+  long preMillis = millis();
+
+  while ((csq < requiredCsq) && (curMillis - preMillis < max_wait)){
+    curMillis = millis();
+    csq = signalStrength();
+    Serial.print(".");
+    delay(100);
+  }
+
+  if(csq < requiredCsq){
+    Serial.println("Failed!");
+    return 0;
+  }else{
+    Serial.println("Connected!");
+  }
+
+  return csq;
+}
+
+String codeToSignal(int code){
+
+  String response = "";
+  if(code >=2 && code <=9){
+    response = "Marginal";
+  }
+  else if(code >=10 && code <=14){
+    response = "OK";
+  }
+  else if(code >=15 && code <=19){
+    response = "Good";
+  }
+  else if(code >=20 && code <=30){
+    response = "Excellent";
+  }
+  return response;
+}
+
+int signalStrength(){
+
+  int csq = modem.getSignalQuality();
+
+  return csq;
+}
+
+/**
+ * Init modem by restarting the device
+*/
+
+
+/**
+ * Sleep modem
+*/
+void sleepModem(){
+  modem.radioOff();
+  modem.sleepEnable(); //SIM en modo deepsleep
+}
+
+/**
+ * Establishes a GPRS connection with a mobile operator to a server
+*/
+bool connectGprs(struct MovilOperator movilOperator){
+  return modem.gprsConnect(movilOperator.apn, movilOperator.user, movilOperator.pass);
+}
+
+/**
+ * Disconnect GPRS connection
+*/
+bool disconnectGprs(){
+  client.stop();
+  return modem.gprsDisconnect();
+}
+
+/**
+ * Create a new MovilOperator structure from the name, apn, user and its password.
+*/
+void createOperator(struct MovilOperator *movilOperator, String apn, String user, String pass){
+  movilOperator->apn  = (char*) malloc((apn.length() + 1) * sizeof(char));
+  movilOperator->user = (char*) malloc((user.length() + 1) * sizeof(char));
+  movilOperator->pass = (char*) malloc((pass.length() + 1) * sizeof(char));
+  apn.toCharArray(movilOperator->apn, apn.length() + 1);
+  user.toCharArray(movilOperator->user, user.length() + 1);
+  pass.toCharArray(movilOperator->pass, pass.length() + 1);
+}
+
+bool beginMemory(){
+  return SPIFFS.begin(true);
+}
+
 
 #define GHOTA_USER "MenitoX"
 #define GHOTA_REPO "OTA-testing"
@@ -12,8 +152,85 @@ static const char *password = "11248325"; // your network password
 #define GHOTA_BIN_FILE "firmware.bin"
 #define GHOTA_ACCEPT_PRERELEASE 0
 #define WIFI_TIMEOUT 10000
+#define GHOTA_HOST "https://github-releases.githubusercontent.com"
+#define GHOTA_PORT 443
 
-WiFiClientSecure client;
+void performUpdate(Stream &updateSource, size_t updateSize)
+{
+    if (Update.begin(updateSize))
+    {
+        size_t written = Update.writeStream(updateSource);
+        if (written == updateSize)
+        {
+            Serial.println("Escritos : " + String(written) + " successfully");
+        }
+        else
+        {
+            Serial.println("Solamente escritos : " + String(written) + "/" + String(updateSize) + ". Retry?");
+        }
+        if (Update.end())
+        {
+            Serial.println("OTA realizado!");
+            if (Update.isFinished())
+            {
+                Serial.println("Ota exitoso, reiniciando!");
+                ESP.restart();
+            }
+            else
+            {
+                Serial.println("Ota no terminó? Algo salió mal!");
+            }
+        }
+        else
+        {
+            Serial.println("Ocurrió Error #: " + String(Update.getError()));
+        }
+    }
+    else
+    {
+        Serial.println("Sin espacio suficiente para hacer OTA");
+    }
+}
+
+
+void updateFromFS()
+{
+    File updateBin = SPIFFS.open("/update.bin");
+    if (updateBin)
+    {
+        if (updateBin.isDirectory())
+        {
+            Serial.println("Error, en el directorio");
+            updateBin.close();
+            return;
+        }
+
+        size_t updateSize = updateBin.size();
+
+        if (updateSize > 0)
+        {
+            Serial.println("Intentando comenzar Actualización");
+            performUpdate(updateBin, updateSize);
+        }
+        else
+        {
+            Serial.println("Error, archivo vacío");
+        }
+
+        updateBin.close();
+
+        // whe finished remove the binary from sd card to indicate end of the process
+        //fs.remove("/update.bin");
+    }
+    else
+    {
+        Serial.println("No se puede cargar el archivo");
+    }
+}
+
+
+
+//WiFiClientSecure client;
 const char* rootCACertificate = \
 "-----BEGIN CERTIFICATE-----\n" \
 "MIIDxTCCAq2gAwIBAgIQAqxcJmoLQJuPC3nyrkYldzANBgkqhkiG9w0BAQUFADBs\n" \
@@ -39,66 +256,11 @@ const char* rootCACertificate = \
 "+OkuE6N36B9K\n" \
 "-----END CERTIFICATE-----\n";
 
-
-const char* test_client_key = \
-"-----BEGIN RSA PRIVATE KEY-----\n" \
-"MIIEogIBAAKCAQEA6qaQb1XaunmN3DLdzI0jhFJP9y3QD3buzjzZ3K4A3A33U+4A\n" \
-"6g/2eytcx66WZGntoNcYSODDpT/wBfZ86Vc+AyDdZMMYrdN5p+vXK4f4QpNmJcAf\n" \  
-"x/MQmvb9n0JaorvhGAeec8MQSLg/J7CaaflthX6u97xY+zmeGOMa12nQRxcUs98W\n" \
-"e/vPSVlJZyacSWRQdEN2d27dev9WUIvm+DviDL1LxkzPPAzaQzD4rrNilINfIlOr\n" \
-"SfAjdfQyDFxIJVPnizhP5BwerKse43ukoS6RCiLuQMXcRU0HdmbgpEj0kaTA8nlX\n" \
-"LG86+6GWlwlYxZCd7jtnAijpPXEZhl4Ow0NSCwIDAQABAoIBAGcsdbV+en4jlEyN\n" \
-"0Rhvtn4n8yEr85/ZG4dzGhf+KkKXoXg13hEMk8P0fQcPrPDZ4rIl4Xep3Fx8kH0O\n" \
-"tD2lLo8RlEcJwYAszAEZobJyRqZ/SRqwL0krhtGcaEfuVQvYsFBwiSs9SZuv55T8\n" \
-"Aek20wEvgp9LIZTU8L7gnJy62elnVRga0sb1bFlxroQWlqrDdO8i7vfluGa9NJom\n" \
-"og+MMvx2jhQOYaYJpktDerBfqhBHzKlbVpp+FBg+kUpE5SVEV0o/kMqvt25s2FbV\n" \
-"PPLAmCvUg7s3AOLaUkjeU1LLFsMU3Q0TsADnqqBUcIssAzF5LC7PrCn93ALGNmbu\n" \
-"CyjMvwECgYEA910q6PteCrjdG1rpz6I7RzQ79ux3SxHG9f++VBOcEmOEtXCXoW8T\n" \
-"AqeJLpmWv/a12gxhPUlw+pF0/daLhoQbAYP/f2foaw4z3RuYSEj8I9XELjs2Q1Bw\n" \
-"E1sNlJ/E0RUp2y7cmKT5TbXQlgwjiEPfseYcBHtX5FcP7L53dhDIh7kCgYEA8tfF\n" \
-"R8h3yUPjKbt0bI1XqWwqe3dzqQsSUr8mBUNzA3di2i9cSefh/qdd0m9H5WyazUjD\n" \
-"YXEIVyzS+9fNxsx93l1xJa4W+Epr002GOSoFslFlk6zpCkybqgWYcT/N03nRdioX\n" \
-"TDSF4velWzvBJ/JxZ6AcTWdQU3/f4puDOENlQeMCgYAVNVy/ewXWH4F9ne7cCYnR\n" \
-"kg3uHtofipencdTsun2wKe4v7EZj5fUYTir53ttI/CsdVeBkc86G/T+tn954mw0B\n" \
-"tUKLtun7e81AkOQelntfyy011YfSf6wMTMs+SfCDCLB9BWiOgd6KJiOLKeFGBqPA\n" \
-"Sf1u+PBROJG5956gddHrqQKBgFOxz9lUmwwvrIwGgjKjaBIJKH8TBTa+jRsdrAHm\n" \
-"ZC5OqDAgYINMOtRkZG6RUcsdaiDUMhpUNZat6S1JDC+27K6Fr+hXnq0GITFbJ6Zt\n" \
-"+Daj3QlPb6XQD1pCwW5OmiaHdoxuJ0dpVreJuGDAMGsPIMyhHwACWmncyZG1HT13\n" \
-"5N8XAoGAZZ604+x9o61Wu20YhlxCZ9Vw4rIW7QeSJMTRcS5hj1lDOXGUwJ5Gdqm4\n" \
-"hYJ8xYza/WafDLCr/5uokb+k7UnjigAhFVGcW9SDADBBikL7k0lhu//xlA1ZZuVe\n" \
-"5qovrsVMQn/KMlbe1HE6CZpngBxRBNXzoBU8XNEfWjupQ+1x8Uc=\n" \
-"-----END RSA PRIVATE KEY-----\n";
-
-const char* test_client_cert = \
-"-----BEGIN CERTIFICATE-----\n" \
-"MIIELTCCAxWgAwIBAgIUK+QWkdd7jjxqNJAAydAAMQlJfPkwDQYJKoZIhvcNAQEL\n" \
-"BQAwZjELMAkGA1UEBhMCVVMxEzARBgNVBAgMCkZha2UgU3RhdGUxFjAUBgNVBAcM\n" \
-"DUZha2UgTG9jYWxpdHkxFTATBgNVBAoMDEZha2UgQ29tcGFueTETMBEGA1UEAwwK\n" \
-"Z2l0aHViLmNvbTAeFw0yMTAzMjkyMTI0NTNaFw0yNjAzMjgyMTI0NTNaMGYxCzAJ\n" \
-"BgNVBAYTAlVTMRMwEQYDVQQIDApGYWtlIFN0YXRlMRYwFAYDVQQHDA1GYWtlIExv\n" \
-"Y2FsaXR5MRUwEwYDVQQKDAxGYWtlIENvbXBhbnkxEzARBgNVBAMMCmdpdGh1Yi5j\n" \
-"b20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDqppBvVdq6eY3cMt3M\n" \
-"jSOEUk/3LdAPdu7OPNncrgDcDfdT7gDqD/Z7K1zHrpZkae2g1xhI4MOlP/AF9nzp\n" \
-"Vz4DIN1kwxit03mn69crh/hCk2YlwB/H8xCa9v2fQlqiu+EYB55zwxBIuD8nsJpp\n" \
-"+W2Ffq73vFj7OZ4Y4xrXadBHFxSz3xZ7+89JWUlnJpxJZFB0Q3Z3bt16/1ZQi+b4\n" \
-"O+IMvUvGTM88DNpDMPius2KUg18iU6tJ8CN19DIMXEglU+eLOE/kHB6sqx7je6Sh\n" \
-"LpEKIu5AxdxFTQd2ZuCkSPSRpMDyeVcsbzr7oZaXCVjFkJ3uO2cCKOk9cRmGXg7D\n" \
-"Q1ILAgMBAAGjgdIwgc8wgY0GA1UdIwSBhTCBgqFqpGgwZjELMAkGA1UEBhMCVVMx\n" \
-"EzARBgNVBAgMCkZha2UgU3RhdGUxFjAUBgNVBAcMDUZha2UgTG9jYWxpdHkxFTAT\n" \
-"BgNVBAoMDEZha2UgQ29tcGFueTETMBEGA1UEAwwKZ2l0aHViLmNvbYIUFQFDaLn/\n" \
-"l1Mk6rr0dcojVwW1MOowCQYDVR0TBAIwADALBgNVHQ8EBAMCBPAwJQYDVR0RBB4w\n" \
-"HIIKZ2l0aHViLmNvbYIOd3d3LmdpdGh1Yi5jb20wDQYJKoZIhvcNAQELBQADggEB\n" \
-"ACGpJ460Q9MzqXCcBaf3/45VGA5BNcwdAt8Zp6VwV1YS1HtiuUKqjxAH6MjMUFRd\n" \
-"0Js5W7SzzrYL8GkZyLZ3f4v2u6pBeyLK60k5K+v/jGlgbxBDUwbYadJ+7KZBgYpl\n" \
-"qBCuaCW3UWAVQodW0NrUGGr9/t1CVR2jKfxXWA3v319pY99UEMkbucsz4g1QGU54\n" \
-"kFoXRqvkkrQSD33uf/HDNTMPHvVs900+NlaF7XQ5ijjmymIAgs7Zo2ze+Y/+vJRr\n" \
-"iuRX/+0+WSRCuiTDa+NS0dfA5qdk0jNc4FGIHgS48fhw5Ht/hzwjeGSuyW8wnxIZ\n" \
-"FDJsfQJwEVL7sFLVcpHN+6A=\n" \
-"-----END CERTIFICATE-----\n";
-
-String upgradeURL = "https://github.com/MenitoX/OTA-testing/releases/download/3.0.0/firmware.bin";
+//String upgradeURL = "https://github.com/MenitoX/OTA-testing/releases/download/1.0.0/firmware.bin";
+String upgradeURL = "https://github-releases.githubusercontent.com/343937274/4d519c80-8e64-11eb-82b4-76da03c1a7ec?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20210421%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210421T215451Z&X-Amz-Expires=300&X-Amz-Signature=ed6606f71eeef4cce404a213fa82f4db57ea43f39327d0ef1dc64f0bcea5ed12&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=343937274&response-content-disposition=attachment%3B%20filename%3Dfirmware.bin&response-content-type=application%2Foctet-stream";
 //String upgradeURL = "https://github-releases.githubusercontent.com/343937274/4d519c80-8e64-11eb-82b4-76da03c1a7ec?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20210330%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210330T145502Z&X-Amz-Expires=300&X-Amz-Signature=9bf9cbbd9b1bbcc31f6558a41b1f8e1400e8a620d17acdab6be8acdbb94640b3&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=343937274&response-content-disposition=attachment%3B%20filename%3Dfirmware.bin&response-content-type=application%2Foctet-stream";
 //String upgradeURL = "https://github-releases.githubusercontent.com/343937274/4d519c80-8e64-11eb-82b4-76da03c1a7ec?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20210330%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210330T142940Z&X-Amz-Expires=300&X-Amz-Signature=88a77c2a12c5a74c5297ec120ca11777bdc2cdc8b6ac6776052146c7d10f0ecf&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=343937274&response-content-disposition=attachment%3B%20filename%3Dfirmware.bin&response-content-type=application%2Foctet-stream";
+const char resource[] = "/343937274/4d519c80-8e64-11eb-82b4-76da03c1a7ec?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20210421%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210421T215451Z&X-Amz-Expires=300&X-Amz-Signature=ed6606f71eeef4cce404a213fa82f4db57ea43f39327d0ef1dc64f0bcea5ed12&X-Amz-SignedHeaders=host&actor_id=0&key_id=0&repo_id=343937274&response-content-disposition=attachment%3B%20filename%3Dfirmware.bin&response-content-type=application%2Foctet-stream"; 
 
 typedef struct urlDetails_t {
     String proto;
@@ -235,16 +397,193 @@ bool _resolveRedirects() {
     }
 }
 
+struct MovilOperator movilOperator;
+String apn = "em" ; 
+String user = ""; 
+String pass = "";
+
+uint32_t knownCRC32 = 0x6f50d767;
+uint32_t knownFileSize = 1024; // In case server does not send it
+
 void setup(){
     Serial.begin(115200);
-    wifiConnection();
-    client.setCACert(rootCACertificate);
+    beginMemory();
+    createOperator(&movilOperator, apn, user, pass);
+    Serial.println("1 OK");
+    if(initGprsModem()){
+        Serial.println("Reboot success!");
+    }
+    Serial.println("2 OK");
+    modem.sendAT(GF("+FSCREATE=" CERT_FILE));
+    if (modem.waitResponse() != 1) return;
+
+    const int cert_size = sizeof(rootCACertificate);
+
+    modem.sendAT(GF("+FSWRITE=" CERT_FILE ",0,"), cert_size, GF(",10"));
+    if (modem.waitResponse(GF(">")) != 1) {
+        return;
+    }
+
+    for (int i = 0; i < cert_size; i++) {
+        char c = pgm_read_byte(&rootCACertificate[i]);
+        modem.stream.write(c);
+    }
+
+    modem.stream.write(GSM_NL);
+    modem.stream.flush();
+
+    if (modem.waitResponse(2000) != 1) return;
+
+    modem.sendAT(GF("+SSLSETCERT=\"" CERT_FILE "\""));
+    if (modem.waitResponse() != 1) return;
+    if (modem.waitResponse(5000L, GF(GSM_NL "+SSLSETCERT:")) != 1) return;
+    const int retCode = modem.stream.readStringUntil('\n').toInt();
+    
+    initGprsModem();
+    if (!connectGprs(movilOperator))
+    {
+        Serial.println(" fail");
+        delay(10000);
+        return;
+    }
+    Serial.println(" OK");
+
+    Serial.print("Connecting to ");
+    Serial.print(GHOTA_HOST);
+
+    // if you get a connection, report back via serial:
+    if (!client.connect(GHOTA_HOST, GHOTA_PORT))
+    {
+        Serial.println(" fail");
+        delay(10000);
+        return;
+    }
+    Serial.println(" OK");
+    // Make a HTTP request:
+    client.print(String("GET ") + resource + " HTTP/1.0\r\n");
+    client.print(String("Host: ") + GHOTA_HOST + "\r\n");
+    client.print("Connection: close\r\n\r\n");
+
+    long timeout = millis();
+    while (client.available() == 0)
+    {
+        if (millis() - timeout > 5000L)
+        {
+            Serial.println(">>> Client Timeout !");
+            client.stop();
+            delay(10000L);
+            return;
+        }
+    }
+
+    Serial.println("Recibiendo Header");
+    uint32_t contentLength = knownFileSize;
+
+    File file = SPIFFS.open("/update.bin", FILE_APPEND);
+
+    while (client.available())
+    {
+        String line = client.readStringUntil('\n');
+        line.trim();
+        //Serial.println(line);    // Uncomment this to show response header
+        line.toLowerCase();
+        if (line.startsWith("content-length:"))
+        {
+            contentLength = line.substring(line.lastIndexOf(':') + 1).toInt();
+        }
+        else if (line.length() == 0)
+        {
+            break;
+        }
+    }
+
+    Serial.println("Recibiendo respuesta");
+    timeout = millis();
+    uint32_t readLength = 0;
+    //CRC32 crc;
+
+    unsigned long timeElapsed = millis();
+    //printPercent(readLength, contentLength);
+
+    while (readLength < contentLength && client.connected() && millis() - timeout < 10000L)
+    {
+        int i = 0;
+        while (client.available())
+        {
+
+            if (!file.print(char(client.read())))
+            {
+                Serial.println("Fallo Append");
+            }
+            //Serial.print((char)c);       // Uncomment this to show data
+            //crc.update(c);
+            readLength++;
+
+            if (readLength % (contentLength / 13) == 0)
+            {
+                //printPercent(readLength, contentLength);
+            }
+            timeout = millis();
+        }
+    }
+
+    file.close();
+
+    //printPercent(readLength, contentLength);
+    timeElapsed = millis() - timeElapsed;
+    Serial.println();
+
+    client.stop();
+    Serial.println("Desconectado del Servidor");
+
+    modem.gprsDisconnect();
+    Serial.println("GPRS Desconectado");
+    Serial.println();
+
+    float duration = float(timeElapsed) / 1000;
+    /*
+    Serial.print("Tamaño de Archivo: ");
+    Serial.println(contentLength);
+    Serial.print("Leido:  ");
+    Serial.println(readLength);
+    Serial.print("Calculado. CRC32:    0x");
+    Serial.println(crc.finalize(), HEX);
+    Serial.print("Conocido CRC32:    0x");
+    Serial.println(knownCRC32, HEX);
+    Serial.print("Bajado en:       ");
+    Serial.print(duration);
+    Serial.println("s");
+    */
+    Serial.println("Se genera una espera de 3 segundos");
+    for (int i = 0; i < 3; i++)
+    {
+        Serial.print(String(i) + "...");
+        delay(1000);
+    }
+
+    //readFile(SPIFFS, "/update.bin");
+
+    updateFromFS();
+
+    // Do nothing forevermore
+    while (true)
+    {
+        delay(1000);
+    }
+
+
+
+
+
+    //wifiConnection();
+    //client.setCACert(rootCACertificate);
     //client.setCertificate(test_client_cert);
     //client.setPrivateKey(test_client_key);
-    httpUpdate.setLedPin(LED_BUILTIN, LOW);
-    _resolveRedirects();
-    httpUpdate.update(client,upgradeURL);
+    //httpUpdate.setLedPin(LED_BUILTIN, LOW);
+    //_resolveRedirects();
+    //httpUpdate.update(client,upgradeURL);
     
+
     /* This is the actual code to check and upgrade */
     /* End of check and upgrade code */
 }
